@@ -10,7 +10,8 @@
  * it's not good practice to ignore compiler warnings, but in this
  * case it's OK.  
  */
-
+#include <stdio.h>
+#include <math.h>
 #if 0
 /*
  * Instructions to Students:
@@ -138,7 +139,9 @@ NOTES:
  *   Rating: 1
  */
 int bitXor(int x, int y) {
-  return 2;
+  int ans;
+  ans = ~(~(x & ~(x & y))&(~(y & ~(x & y))));
+  return ans;
 }
 /* 
  * tmin - return minimum two's complement integer 
@@ -147,7 +150,7 @@ int bitXor(int x, int y) {
  *   Rating: 1
  */
 int tmin(void) {
-  return 2;
+  return (1<<31);
 }
 //2
 /*
@@ -158,7 +161,8 @@ int tmin(void) {
  *   Rating: 2
  */
 int isTmax(int x) {
-  return 2;
+
+  return !(~x & (1<<31 -1));
 }
 /* 
  * allOddBits - return 1 if all odd-numbered bits in word set to 1
@@ -168,7 +172,9 @@ int isTmax(int x) {
  *   Rating: 2
  */
 int allOddBits(int x) {
-  return 2;
+  int ans;
+  ans = 0xAA + (0xAA<<16) + (0xAA<<8);
+  return !((x & ans)^ans);
 }
 /* 
  * negate - return -x 
@@ -178,7 +184,7 @@ int allOddBits(int x) {
  *   Rating: 2
  */
 int negate(int x) {
-  return 2;
+  return ~x + 1;
 }
 //3
 /* 
@@ -191,7 +197,19 @@ int negate(int x) {
  *   Rating: 3
  */
 int isAsciiDigit(int x) {
-  return 2;
+
+  //
+  int ansH, ansL, check1, check2;
+
+
+  ansH = 0x3a;
+  ansL = 0x29;
+
+  check1 = (x + (~ansL + 1)) >> 31;
+  check2 = (x + (~ansH + 1)) >> 31;
+
+  return ! (((~ansL + 1) + x) >> 31) & ((~ansH + 1) + x) >> 31;
+  
 }
 /* 
  * conditional - same as x ? y : z 
@@ -201,7 +219,15 @@ int isAsciiDigit(int x) {
  *   Rating: 3
  */
 int conditional(int x, int y, int z) {
-  return 2;
+
+int ans1, ans2, ans3, ans4;
+ ans1 = !!x; //Here we make x such that it is either 0 (if all )
+ ans2 = ~ans2 +1; // we get the negation of x in 0 or one for two's compliment
+ ans3 = ~ans2 & y;
+ ans4 = (ans2 & z);
+
+
+  return ans3 | ans4;
 }
 /* 
  * isLessOrEqual - if x <= y  then return 1, else return 0 
@@ -211,7 +237,13 @@ int conditional(int x, int y, int z) {
  *   Rating: 3
  */
 int isLessOrEqual(int x, int y) {
-  return 2;
+
+  int x1 = x>>31; int y1 = x>>31; //extract the sign bit;
+  
+
+  int combo = ((x + (~y +1)) >> 31) & 1;//check to see if x is less than
+
+  return (!(x1 & y1) & combo) | !(x ^ y); // return if less than OR equal
 }
 //4
 /* 
@@ -223,7 +255,16 @@ int isLessOrEqual(int x, int y) {
  *   Rating: 4 
  */
 int logicalNeg(int x) {
-  return 2;
+
+  int check;
+
+  //Here, the goal is to bassically check if its zero.
+  //And after a double negation, 0 is the only number that will not change
+  // In comparison to the regular negation (WITHOUT adding one)
+  // because it has no sign (in this format of int);
+
+  check = (~x) & (~(negate(x)));
+  return (1 & (check>>31));
 }
 /* howManyBits - return the minimum number of bits required to represent x in
  *             two's complement
@@ -237,9 +278,50 @@ int logicalNeg(int x) {
  *  Max ops: 90
  *  Rating: 4
  */
+
 int howManyBits(int x) {
-  return 0;
+
+    
+    int s, end, hold, part4, part3, part2, part1;
+
+    int comp1, comp2, fin;
+  //This will represent the sign of the number
+    s = (x >> 31);
+    
+    //Since we are looking for the minimum we check for the amount of bits and ignore the sign
+    comp1 = (s & ~x); 
+    comp2 = (~s & x);
+
+    x = comp1 | comp2;
+    
+  //Now, we conduct a search for each bit sequence to check for amount of bits using shifts as follows:
+  //we do this, by starting from the end of the bits to the beggining and check at each section
+  //how many bits are used
+    part1 = !!(x >> 16) << 4;
+    part2 = !!(x >> 8) << 3;
+    part3 = !!(x >> 4) << 2;
+    part4 = !!(x >> 2) << 1;
+    hold = !!(x >> 1);
+    x >>= part1;
+    x >>= part2;
+    x >>= part3;
+    x >>= part4;
+    x >>= hold;
+
+    fin =  part1 + part2 + part3 + part4 + hold;
+    
+  //At this step we are checking the one place bit(s); every other 
+  //section of the bits was tested above.
+
+    end = x;
+
+    
+
+    //The extra one is to acount for the sign bit that is needed
+
+    return fin + end + 1;
 }
+
 //float
 /* 
  * float_twice - Return bit-level equivalent of expression 2*f for
@@ -253,7 +335,28 @@ int howManyBits(int x) {
  *   Rating: 4
  */
 unsigned float_twice(unsigned uf) {
-  return 2;
+
+  int check , s;
+ if (uf == 0  || uf == 0xFF000000){ //This returns in a scenario where the value
+  //is 0  or when what is stored in uf is Not a Number.
+    return uf;
+  }
+  //This case is where there could be denormalized, we set a variable to check the exponent
+ /* check = (((uf << 1) >> 24) << 23); //This gets us to the exp
+  s = ((uf >> 31) << 31);
+  if ( check == 0)
+  {
+    return (s | (uf << 1));
+  }
+  */
+  
+  // Here we have determined that the number is ok to just multiply by two.
+  //Since we are in the floating point representation, we want to do this
+  //by adding one to the exponent portion of the floating point structure
+  
+    return  uf + (1 << 23);
+  
+  
 }
 /* 
  * float_i2f - Return bit-level equivalent of expression (float) x
@@ -265,7 +368,58 @@ unsigned float_twice(unsigned uf) {
  *   Rating: 4
  */
 unsigned float_i2f(int x) {
-  return 2;
+  //First we extract the sign bit
+  int s = (x & (1>>31));
+  unsigned exp = 127; //establish the bias
+  unsigned frac;
+  int count = 0;
+  int still = x;
+  if(x == 0){
+    return 0;
+  }
+  if (x < 0){
+    still = -x;
+  }
+  
+
+  while (still > 1) //in this step, we keep tract of how long it takes to divide out the number by two which is going to help us 
+  // figure out the exponent section in the floating point representation
+  {
+    still >>= 1;
+    count++;
+
+  }
+
+  exp = exp + count; // we add the exp bit to the bias 
+
+  frac = still & ((1 << count ) - 1); //then we set the frac bit assuming no rounding is needed
+
+  int spots = count - 23;
+
+  int round = 0;
+
+  if(spots>0) //in such a scenrio we will have to round because there are more than 23 bits
+  {
+    frac>>=spots;
+    int chang = frac & ((1<<spots) - 1);
+    int cut = 1<< (spots -1);
+ 
+    if (chang>cut || ((frac & 0x1) && chang==cut)) //
+    {
+      round = 1;
+    }
+
+     
+
+
+  }
+      else{
+      frac <<= (-spots);
+    }
+  
+
+
+  return ((s << 31) | (exp << 23) | frac) + round;
 }
 /* 
  * float_f2i - Return bit-level equivalent of expression (int) f
@@ -280,5 +434,77 @@ unsigned float_i2f(int x) {
  *   Rating: 4
  */
 int float_f2i(unsigned uf) {
-  return 2;
+
+  int s = (uf >> 31);
+
+  int exp = (0xFF & (uf >> 23)); //This is the standard spot and amount of bits in I-EEE floating point
+
+  
+
+  int Expo = exp - 127; // This calculates the actual exponent value after factoring in bias
+
+  // To account for Not a Number and infinity we check the exponent and make sure its non zero
+   if( exp == 0x7F800000){
+     return 0x80000000u;
+   }
+
+  //Next we account for the scenario where the actual exponent value is beyond the limit for integers
+   if(Expo>=31){
+
+     return 0x80000000u;
+   }
+
+   if (Expo < 0) // Here the exp is less than the standard bias value so we return 0
+   {
+     return 0;
+   }
+
+    
+    int mant = (0x7FFFFF & uf);
+
+    mant = (0x80000000u | mant);
+   
+   if (exp <= 23) // In this scenario we conduct a bitwise shift to the right
+
+   {
+     mant = (mant >> (23 -Expo));
+   }
+
+   else{
+     mant = (mant << (Expo - 23));
+   }
+
+  int ans1 = (1 & (uf >> 31));
+
+  if(ans1){
+    return negate(mant);
+  }
+
+ 
+    return mant;
+  
+   
+   
+}
+
+int main(){
+  //printf("%d",bitXor(4,5));
+  //printf("%d",allOddBits(0xAAAAAAAA));
+  //printf("%d",allOddBits(0xFFFFFFFD));
+   //printf("%d",negate(3));
+   //printf("%d",isAsciiDigit(0x35));
+   //printf("\n");
+   //         printf("%d",isAsciiDigit(0x3a));
+   //         printf("%d",isAsciiDigit(0x05));
+   //printf("%d", tmin());
+  //printf("%d", isTmax(2147483647));
+  //printf("%d", isTmax(255999));
+  //printf("%d",conditional(2,4,5));
+  //printf("%d" , isLessOrEqual(4,2));
+
+ //printf("%d" , logicalNeg(3));
+ //printf("%d" , logicalNeg(0));
+ //printf("%d" , float_twice(25));
+  //printf("%d", (float_f2i(2)));
+  //printf("%d", (howManyBits(10)));
 }
